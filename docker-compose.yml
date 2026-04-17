@@ -1,15 +1,21 @@
 services:
   web:
-    build: .
-    image: bierwiegen-web:latest
+    image: ghcr.io/bastistr99/bierwiegen-web:latest
     container_name: bierwiegen-web
     restart: unless-stopped
-    ports:
-      - "80:80"         # Direkter Port – bei bestehendem Reverse-Proxy (z. B. Traefik/Caddy)
-                        # diesen Block ersetzen durch ein gemeinsames Docker-Network + Labels
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost/"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 5s
+    networks:
+      - npm_network
+
+# Verbindet sich mit dem bestehenden Netzwerk des Nginx Proxy Managers.
+# Netzwerkname prüfen: im Hostinger Terminal → docker network ls
+# Standard bei Hostinger Docker Manager Projekt "npm" → npm_default
+networks:
+  npm_network:
+    external: true
+    name: npm_default
