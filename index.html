@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bierwiegen — Das Präzisionstrinkspiel</title>
+  <meta name="description" content="Bierwiegen ist das iOS-Trinkspiel, bei dem Präzision zählt. Wieg dein Bier, triff das Ziel – wer am weitesten daneben liegt, bekommt einen Strich.">
+  <meta property="og:title" content="Bierwiegen — Das Präzisionstrinkspiel">
+  <meta property="og:description" content="Wieg dein Bier. Triff das Ziel. Wer am weitesten daneben liegt, trinkt mehr.">
+  <meta property="og:type" content="website">
+  <link rel="icon" type="image/png" href="assets/app-icon.png">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg:       #0A0A0A;
+      --s1:       #111111;
+      --s2:       #191919;
+      --amber:    #F5A623;
+      --amber2:   #FFD060;
+      --adim:     rgba(245,166,35,.13);
+      --aborder:  rgba(245,166,35,.22);
+      --text:     #FFFFFF;
+      --muted:    #808080;
+      --dim:      #3A3A3A;
+      --border:   rgba(255,255,255,.06);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overflow-x: hidden;
+    }
+
+    /* ─── GRAIN TEXTURE OVERLAY ─── */
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none; z-index: 9999;
+      opacity: .35;
+    }
+
+    /* ─── NAV ─── */
+    nav {
+      position: sticky; top: 0; z-index: 200;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 48px;
+      background: rgba(10,10,10,.82);
+      backdrop-filter: blur(28px);
+      -webkit-backdrop-filter: blur(28px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-logo {
+      display: flex; align-items: center; gap: 10px;
+      text-decoration: none; color: var(--text);
+    }
+    .nav-logo img { width: 34px; height: 34px; border-radius: 8px; }
+    .nav-logo span { font-size: 17px; font-weight: 700; letter-spacing: -.3px; }
+    .nav-cta {
+      display: inline-flex; align-items: center; gap: 7px;
+      background: var(--amber); color: #000;
+      font-weight: 700; font-size: 14px;
+      padding: 9px 20px; border-radius: 100px;
+      text-decoration: none;
+      transition: background .18s, transform .18s, box-shadow .18s;
+    }
+    .nav-cta:hover { background: var(--amber2); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(245,166,35,.3); }
+    .ico-apple { width: 14px; height: 14px; fill: currentColor; flex-shrink: 0; }
+
+    /* ─── HERO ─── */
+    .hero {
+      position: relative; min-height: calc(100vh - 63px);
+      display: flex; align-items: center;
+      padding: 80px 48px;
+      overflow: hidden;
+    }
+
+    /* Radial amber glow */
+    .hero-glow-main {
+      position: absolute; bottom: -300px; left: 50%;
+      transform: translateX(-50%);
+      width: 1000px; height: 700px;
+      background: radial-gradient(ellipse at 50% 70%, rgba(245,166,35,.11) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .hero-glow-side {
+      position: absolute; top: 20%; right: -10%;
+      width: 500px; height: 500px;
+      background: radial-gradient(ellipse, rgba(245,166,35,.05) 0%, transparent 65%);
+      pointer-events: none;
+    }
+
+    /* Bubbles container */
+    .bubbles { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+    .bubble {
+      position: absolute; border-radius: 50%;
+      background: rgba(245,166,35,.06);
+      border: 1px solid rgba(245,166,35,.12);
+      animation: rise linear infinite;
+      bottom: -60px;
+    }
+    @keyframes rise {
+      0%   { transform: translateY(0) translateX(0); opacity: 0; }
+      5%   { opacity: 1; }
+      50%  { transform: translateY(-50vh) translateX(15px); }
+      95%  { opacity: .4; }
+      100% { transform: translateY(-110vh) translateX(-5px); opacity: 0; }
+    }
+
+    .hero-grid {
+      position: relative; z-index: 2;
+      display: grid; grid-template-columns: 1fr 1fr;
+      align-items: center; gap: 64px;
+      max-width: 1120px; margin: 0 auto; width: 100%;
+    }
+
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--adim);
+      border: 1px solid var(--aborder);
+      color: var(--amber);
+      font-size: 12px; font-weight: 600; letter-spacing: .3px;
+      padding: 6px 14px; border-radius: 100px;
+      margin-bottom: 24px;
+      opacity: 0; animation: fadeUp .6s .1s ease forwards;
+    }
+    .badge-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--amber);
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: .5; transform: scale(.7); }
+    }
+
+    .hero h1 {
+      font-size: clamp(56px, 6.5vw, 88px);
+      font-weight: 800; letter-spacing: -3px; line-height: .95;
+      margin-bottom: 22px;
+      opacity: 0; animation: fadeUp .6s .2s ease forwards;
+    }
+    .hero h1 .grad {
+      background: linear-gradient(135deg, var(--amber) 0%, var(--amber2) 55%, #E8900A 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-desc {
+      font-size: 18px; color: var(--muted); line-height: 1.6;
+      max-width: 400px; margin-bottom: 36px;
+      opacity: 0; animation: fadeUp .6s .3s ease forwards;
+    }
+
+    .hero-actions {
+      display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+      opacity: 0; animation: fadeUp .6s .4s ease forwards;
+    }
+    .btn-cta {
+      display: inline-flex; align-items: center; gap: 9px;
+      background: var(--amber); color: #000;
+      font-weight: 700; font-size: 16px;
+      padding: 15px 30px; border-radius: 100px;
+      text-decoration: none;
+      transition: all .22s;
+      position: relative;
+    }
+    .btn-cta::after {
+      content: '';
+      position: absolute; inset: -2px; border-radius: 100px;
+      background: var(--amber);
+      filter: blur(14px); opacity: 0;
+      transition: opacity .22s;
+      z-index: -1;
+    }
+    .btn-cta:hover { background: var(--amber2); transform: translateY(-2px); }
+    .btn-cta:hover::after { opacity: .3; }
+    .btn-cta svg { width: 18px; height: 18px; fill: #000; }
+    .hero-sub-note { font-size: 13px; color: var(--dim); }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Phone */
+    .hero-visual {
+      display: flex; justify-content: center; align-items: center;
+      opacity: 0; animation: fadeUp .7s .5s ease forwards;
+    }
+    .phone-wrap {
+      perspective: 1200px;
+      width: 280px;
+    }
+    .phone {
+      width: 100%;
+      transform-style: preserve-3d;
+      animation: float 5s ease-in-out infinite;
+      transition: transform .1s ease-out;
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0) rotateY(-4deg) rotateX(2deg); }
+      50%       { transform: translateY(-20px) rotateY(-4deg) rotateX(2deg); }
+    }
+    .phone-shell {
+      border-radius: 54px;
+      border: 10px solid #242424;
+      box-shadow:
+        0 0 0 1px #333,
+        0 70px 140px rgba(0,0,0,.9),
+        0 0 100px rgba(245,166,35,.07);
+      overflow: hidden; background: #000; position: relative;
+    }
+    .phone-notch {
+      position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+      width: 108px; height: 28px;
+      background: #171717;
+      border-radius: 0 0 18px 18px;
+      z-index: 10;
+    }
+    .phone-shell img { width: 100%; display: block; }
+    .phone-shadow {
+      width: 160px; height: 20px; margin: 24px auto 0;
+      background: radial-gradient(ellipse, rgba(245,166,35,.15) 0%, transparent 70%);
+    }
+
+    /* ─── STATS ─── */
+    .stats-bar {
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+    .stats-inner {
+      max-width: 1120px; margin: 0 auto;
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      padding: 0 48px;
+    }
+    .stat {
+      padding: 32px 24px;
+      border-right: 1px solid var(--border);
+      text-align: center;
+    }
+    .stat:last-child { border-right: none; }
+    .stat-n {
+      display: block; font-size: 36px; font-weight: 800;
+      letter-spacing: -1.5px; color: var(--amber);
+      line-height: 1;
+    }
+    .stat-label {
+      display: block; font-size: 13px; color: var(--muted);
+      margin-top: 6px;
+    }
+
+    /* ─── SECTION WRAPPER ─── */
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 100px 48px; }
+
+    .section-label {
+      font-size: 11px; font-weight: 700; color: var(--amber);
+      text-transform: uppercase; letter-spacing: 2px;
+      margin-bottom: 14px;
+    }
+    .section-title {
+      font-size: clamp(30px, 4vw, 48px);
+      font-weight: 800; letter-spacing: -1.5px;
+      line-height: 1.05; margin-bottom: 14px;
+    }
+    .section-desc {
+      font-size: 17px; color: var(--muted); line-height: 1.6;
+      max-width: 480px; margin-bottom: 56px;
+    }
+
+    /* ─── REVEAL ANIMATION ─── */
+    .reveal {
+      opacity: 0; transform: translateY(28px);
+      transition: opacity .65s ease, transform .65s ease;
+    }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+    .reveal-d1 { transition-delay: .1s; }
+    .reveal-d2 { transition-delay: .2s; }
+    .reveal-d3 { transition-delay: .3s; }
+    .reveal-d4 { transition-delay: .4s; }
+
+    /* ─── STEPS ─── */
+    .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+    .step {
+      background: var(--s1);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 32px 24px;
+      transition: border-color .25s, box-shadow .25s, transform .25s;
+      cursor: default;
+    }
+    .step:hover {
+      border-color: var(--aborder);
+      box-shadow: 0 0 32px rgba(245,166,35,.07), 0 20px 40px rgba(0,0,0,.3);
+      transform: translateY(-5px);
+    }
+    .step-n {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 32px; height: 32px; border-radius: 9px;
+      background: var(--adim); border: 1px solid var(--aborder);
+      color: var(--amber); font-size: 12px; font-weight: 700;
+      margin-bottom: 20px;
+    }
+    .step-ico { font-size: 32px; margin-bottom: 14px; }
+    .step h3 { font-size: 17px; font-weight: 700; margin-bottom: 8px; }
+    .step p { font-size: 14px; color: var(--muted); line-height: 1.55; }
+
+    /* ─── SCREENSHOTS ─── */
+    .ss-outer { overflow: hidden; padding: 80px 0 100px; }
+    .ss-header { max-width: 1120px; margin: 0 auto 48px; padding: 0 48px; }
+    .ss-track {
+      display: flex; gap: 24px;
+      padding: 24px 48px 48px;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .ss-track::-webkit-scrollbar { display: none; }
+    .ss-item { flex-shrink: 0; scroll-snap-align: start; }
+    .ss-item .phone-shell {
+      width: 200px; border-radius: 40px; border-width: 8px;
+      transition: transform .3s ease, box-shadow .3s ease;
+    }
+    .ss-item:hover .phone-shell {
+      transform: translateY(-8px) scale(1.03);
+      box-shadow: 0 0 0 1px #444, 0 40px 80px rgba(0,0,0,.7), 0 0 40px rgba(245,166,35,.1);
+    }
+    .ss-item .phone-notch { width: 84px; height: 22px; }
+    .ss-caption {
+      text-align: center; margin-top: 16px;
+      font-size: 12px; color: var(--muted);
+    }
+
+    /* ─── FEATURES ─── */
+    .feat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .feat {
+      background: var(--s1);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 28px 26px;
+      transition: border-color .25s, box-shadow .25s, transform .25s;
+      cursor: default;
+    }
+    .feat:hover {
+      border-color: var(--aborder);
+      box-shadow: 0 0 30px rgba(245,166,35,.06), 0 16px 40px rgba(0,0,0,.25);
+      transform: translateY(-4px);
+    }
+    .feat.span2 { grid-column: span 2; display: flex; align-items: flex-start; gap: 20px; }
+    .feat-ico-wrap {
+      width: 52px; height: 52px; border-radius: 14px; flex-shrink: 0;
+      background: var(--adim); border: 1px solid var(--aborder);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px; margin-bottom: 18px;
+    }
+    .feat.span2 .feat-ico-wrap { margin-bottom: 0; }
+    .feat h3 { font-size: 18px; font-weight: 700; margin-bottom: 9px; }
+    .feat p { font-size: 14px; color: var(--muted); line-height: 1.6; }
+
+    /* ─── DOWNLOAD CTA ─── */
+    .dl-outer { padding: 80px 48px 100px; }
+    .dl-card {
+      max-width: 700px; margin: 0 auto;
+      background: var(--s1);
+      border: 1px solid var(--aborder);
+      border-radius: 40px; padding: 64px 56px;
+      text-align: center; position: relative; overflow: hidden;
+    }
+    .dl-card::before {
+      content: '';
+      position: absolute; top: -160px; left: 50%; transform: translateX(-50%);
+      width: 600px; height: 400px;
+      background: radial-gradient(ellipse, rgba(245,166,35,.07) 0%, transparent 65%);
+      pointer-events: none;
+    }
+    .dl-card::after {
+      content: '';
+      position: absolute; bottom: -80px; left: 50%; transform: translateX(-50%);
+      width: 400px; height: 200px;
+      background: radial-gradient(ellipse, rgba(245,166,35,.05) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .dl-icon {
+      width: 100px; height: 100px; border-radius: 22px;
+      display: block; margin: 0 auto 28px;
+      box-shadow: 0 24px 60px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.06);
+    }
+    .dl-card h2 {
+      font-size: clamp(28px, 4vw, 42px);
+      font-weight: 800; letter-spacing: -1.5px; margin-bottom: 14px;
+    }
+    .dl-card p { font-size: 17px; color: var(--muted); margin-bottom: 40px; line-height: 1.55; }
+
+    .store-btn {
+      display: inline-flex; align-items: center; gap: 14px;
+      background: var(--s2); border: 1px solid #303030;
+      border-radius: 16px; padding: 14px 28px;
+      text-decoration: none; color: var(--text);
+      transition: all .22s;
+      position: relative;
+    }
+    .store-btn::after {
+      content: '';
+      position: absolute; inset: -1px; border-radius: 17px;
+      background: linear-gradient(135deg, rgba(245,166,35,.15), transparent 60%);
+      opacity: 0; transition: opacity .22s;
+    }
+    .store-btn:hover { background: #222; border-color: #444; transform: translateY(-2px); box-shadow: 0 12px 32px rgba(0,0,0,.4); }
+    .store-btn:hover::after { opacity: 1; }
+    .store-btn svg { width: 30px; height: 30px; fill: white; }
+    .store-btn-txt small { display: block; font-size: 11px; color: var(--muted); text-align: left; }
+    .store-btn-txt strong { display: block; font-size: 17px; font-weight: 700; }
+
+    .dl-note { font-size: 13px; color: var(--dim); margin-top: 20px; }
+
+    /* ─── FOOTER ─── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 28px 48px;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 14px;
+    }
+    .footer-l { font-size: 13px; color: var(--dim); }
+    .footer-links { display: flex; gap: 24px; }
+    .footer-links a { font-size: 13px; color: var(--muted); text-decoration: none; transition: color .2s; }
+    .footer-links a:hover { color: var(--text); }
+
+    /* ─── RESPONSIVE ─── */
+    @media (max-width: 900px) {
+      nav { padding: 12px 20px; }
+      .hero { padding: 56px 20px; min-height: auto; }
+      .hero-grid { grid-template-columns: 1fr; gap: 48px; text-align: center; }
+      .hero-desc { max-width: 100%; }
+      .hero-actions { justify-content: center; }
+      .hero-visual { order: -1; }
+      .phone-wrap { width: 220px; }
+      .stats-inner { grid-template-columns: repeat(2, 1fr); padding: 0 20px; }
+      .stat { border-right: none; border-bottom: 1px solid var(--border); }
+      .stat:nth-child(odd) { border-right: 1px solid var(--border); }
+      .stat:nth-last-child(-n+2) { border-bottom: none; }
+      .wrap { padding: 64px 20px; }
+      .steps { grid-template-columns: 1fr 1fr; }
+      .feat-grid { grid-template-columns: 1fr; }
+      .feat.span2 { grid-column: span 1; flex-direction: column; }
+      .ss-header { padding: 0 20px; }
+      .ss-track { padding: 16px 20px 40px; }
+      .dl-outer { padding: 48px 20px 64px; }
+      .dl-card { padding: 40px 24px; }
+      footer { padding: 20px; flex-direction: column; align-items: flex-start; }
+    }
+
+    @media (max-width: 480px) {
+      .steps { grid-template-columns: 1fr; }
+      .stats-inner { grid-template-columns: repeat(2, 1fr); }
+      .hero h1 { letter-spacing: -2px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="index.html" class="nav-logo">
+    <img src="assets/app-icon.png" alt="Bierwiegen">
+    <span>Bierwiegen</span>
+  </a>
+  <!-- TODO: App Store URL einfügen -->
+  <a href="#download" class="nav-cta">
+    <svg class="ico-apple" viewBox="0 0 814 1000"><path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.3-164-39.3c-76 0-103.7 40.8-165.9 40.8s-105-57.8-155.5-127.4C46 790.7 0 681.2 0 577.3 0 385.2 123 277 244.5 277c62.3 0 114.2 41.5 153.4 41.5 37.6 0 96.7-45.5 172.3-45.5 27.6.1 108.2 10.3 164.1 80.8zm-190.4-70.9c-3.9 30.6-16.6 86.5-54.9 129.3-38.8 42.8-84.1 62.4-108.9 62.4-3.9-24.2-3.9-48.4 11.7-82.4 25.6-57.2 91.5-105.2 152.1-109.3z"/></svg>
+    App Store
+  </a>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-glow-main"></div>
+  <div class="hero-glow-side"></div>
+  <div class="bubbles" id="bubbles"></div>
+
+  <div class="hero-grid">
+    <div>
+      <div class="hero-badge">
+        <span class="badge-dot"></span>
+        Trinkspiel &middot; iOS &middot; Ab 18 Jahren
+      </div>
+      <h1>Bier<span class="grad">wiegen</span></h1>
+      <p class="hero-desc">Das Präzisionstrinkspiel. Wieg dein Bier, triff das Ziel&nbsp;– wer am weitesten daneben liegt, bekommt einen Strich.</p>
+      <div class="hero-actions">
+        <!-- TODO: App Store URL einfügen -->
+        <a href="#download" class="btn-cta">
+          <svg viewBox="0 0 814 1000"><path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.3-164-39.3c-76 0-103.7 40.8-165.9 40.8s-105-57.8-155.5-127.4C46 790.7 0 681.2 0 577.3 0 385.2 123 277 244.5 277c62.3 0 114.2 41.5 153.4 41.5 37.6 0 96.7-45.5 172.3-45.5 27.6.1 108.2 10.3 164.1 80.8zm-190.4-70.9c-3.9 30.6-16.6 86.5-54.9 129.3-38.8 42.8-84.1 62.4-108.9 62.4-3.9-24.2-3.9-48.4 11.7-82.4 25.6-57.2 91.5-105.2 152.1-109.3z"/></svg>
+          Jetzt laden
+        </a>
+        <span class="hero-sub-note">Kostenlos &middot; iOS&nbsp;17+</span>
+      </div>
+    </div>
+
+    <div class="hero-visual">
+      <div class="phone-wrap" id="phoneWrap">
+        <div class="phone" id="phone">
+          <div class="phone-shell">
+            <div class="phone-notch"></div>
+            <img src="assets/screen1.png" alt="Bierwiegen – Ergebnis-Ansicht">
+          </div>
+        </div>
+        <div class="phone-shadow"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- STATS BAR -->
+<div class="stats-bar reveal">
+  <div class="stats-inner">
+    <div class="stat">
+      <span class="stat-n">2–8</span>
+      <span class="stat-label">Spieler</span>
+    </div>
+    <div class="stat">
+      <span class="stat-n">∞</span>
+      <span class="stat-label">Runden</span>
+    </div>
+    <div class="stat">
+      <span class="stat-n">0</span>
+      <span class="stat-label">Daten gesammelt</span>
+    </div>
+    <div class="stat">
+      <span class="stat-n">Free</span>
+      <span class="stat-label">Im App Store</span>
+    </div>
+  </div>
+</div>
+
+<!-- HOW IT WORKS -->
+<section>
+  <div class="wrap">
+    <div class="section-label reveal">So funktioniert's</div>
+    <h2 class="section-title reveal reveal-d1">Vier Schritte zum Strich</h2>
+    <p class="section-desc reveal reveal-d2">Kein Setup, keine Registrierung. Einfach Bier aufmachen, App starten, loslegen.</p>
+    <div class="steps">
+      <div class="step reveal reveal-d1">
+        <div class="step-n">1</div>
+        <div class="step-ico">🍺</div>
+        <h3>Bier wiegen</h3>
+        <p>Alle Spieler wiegen ihr volles Bier. Das schwerste Bier nennt das erste Zielgewicht.</p>
+      </div>
+      <div class="step reveal reveal-d2">
+        <div class="step-n">2</div>
+        <div class="step-ico">🎯</div>
+        <h3>Ziel ansagen</h3>
+        <p>Ein Zielgewicht wird festgelegt – mindestens 10&thinsp;g unter dem leichtesten Bier der Runde.</p>
+      </div>
+      <div class="step reveal reveal-d3">
+        <div class="step-n">3</div>
+        <div class="step-ico">🥃</div>
+        <h3>Trinken</h3>
+        <p>Jeder setzt nur 1× an und trinkt, bis er glaubt das Ziel zu treffen. Kein Absetzen, kein Nachschauen!</p>
+      </div>
+      <div class="step reveal reveal-d4">
+        <div class="step-n">4</div>
+        <div class="step-ico">🏆</div>
+        <h3>Auswerten</h3>
+        <p>Alle wiegen erneut. Wer am weitesten vom Ziel entfernt ist, bekommt einen Strich.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SCREENSHOTS -->
+<section class="ss-outer">
+  <div class="ss-header">
+    <div class="section-label reveal">Einblicke</div>
+    <h2 class="section-title reveal reveal-d1">Designed fürs Spiel</h2>
+  </div>
+  <div class="ss-track">
+    <div class="ss-item">
+      <div class="phone-shell"><div class="phone-notch"></div><img src="assets/screen1.png" alt="Ergebnis-Ansicht"></div>
+      <p class="ss-caption">Rundenauswertung</p>
+    </div>
+    <div class="ss-item">
+      <div class="phone-shell"><div class="phone-notch"></div><img src="assets/screen2.png" alt="Trink-Phase"></div>
+      <p class="ss-caption">Trink-Phase</p>
+    </div>
+    <div class="ss-item">
+      <div class="phone-shell"><div class="phone-notch"></div><img src="assets/screen3.png" alt="Gewinner"></div>
+      <p class="ss-caption">Gewinner</p>
+    </div>
+    <div class="ss-item">
+      <div class="phone-shell"><div class="phone-notch"></div><img src="assets/screen4.png" alt="Endstand"></div>
+      <p class="ss-caption">Endstand</p>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section>
+  <div class="wrap">
+    <div class="section-label reveal">Features</div>
+    <h2 class="section-title reveal reveal-d1">Alles was du brauchst</h2>
+    <p class="section-desc reveal reveal-d2">Kein Konto. Keine Cloud. Keine Ablenkung.</p>
+    <div class="feat-grid">
+      <div class="feat span2 reveal reveal-d1">
+        <div class="feat-ico-wrap">🎮</div>
+        <div>
+          <h3>Normal & Hardcore</h3>
+          <p>Im normalen Modus bekommt nur der Weiteste einen Strich. Im Hardcore-Modus erwischt es den Weitesten über <em>und</em> unter dem Ziel gleichzeitig – doppelte Spannung für erfahrene Runden.</p>
+        </div>
+      </div>
+      <div class="feat reveal reveal-d2">
+        <div class="feat-ico-wrap">🎯</div>
+        <h3>Genauer Treffer</h3>
+        <p>Wer exakt trifft (0&thinsp;g), darf einen Strich an einen anderen Spieler vergeben. Präzision hat ihren Preis.</p>
+      </div>
+      <div class="feat reveal reveal-d3">
+        <div class="feat-ico-wrap">📊</div>
+        <h3>Rangliste</h3>
+        <p>Rundenübersicht und Gesamtrangliste mit allen Strichen – immer einen Blick wert.</p>
+      </div>
+      <div class="feat reveal reveal-d1">
+        <div class="feat-ico-wrap">📸</div>
+        <h3>Story-Funktion</h3>
+        <p>Am Spielende optional ein Gruppenfoto machen und den Ergebnis-Screen direkt als Story teilen.</p>
+      </div>
+      <div class="feat reveal reveal-d2">
+        <div class="feat-ico-wrap">🔒</div>
+        <h3>100 % privat</h3>
+        <p>Kein Account, kein Server. Alles bleibt auf deinem Gerät. Nur anonyme Nutzungsstatistiken.</p>
+      </div>
+      <div class="feat reveal reveal-d3">
+        <div class="feat-ico-wrap">⚡️</div>
+        <h3>Sofort spielbereit</h3>
+        <p>Keine Registrierung, kein Onboarding. App öffnen, Spieler eingeben, Bier aufmachen.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DOWNLOAD -->
+<section class="dl-outer" id="download">
+  <div class="dl-card reveal">
+    <img src="assets/app-icon.png" alt="Bierwiegen" class="dl-icon">
+    <h2>Bereit zum Wiegen?</h2>
+    <p>Kostenlos im App Store.<br>iOS&nbsp;17 oder neuer.</p>
+    <!-- TODO: App Store URL einfügen -->
+    <a href="#" class="store-btn">
+      <svg viewBox="0 0 814 1000"><path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.3-164-39.3c-76 0-103.7 40.8-165.9 40.8s-105-57.8-155.5-127.4C46 790.7 0 681.2 0 577.3 0 385.2 123 277 244.5 277c62.3 0 114.2 41.5 153.4 41.5 37.6 0 96.7-45.5 172.3-45.5 27.6.1 108.2 10.3 164.1 80.8zm-190.4-70.9c-3.9 30.6-16.6 86.5-54.9 129.3-38.8 42.8-84.1 62.4-108.9 62.4-3.9-24.2-3.9-48.4 11.7-82.4 25.6-57.2 91.5-105.2 152.1-109.3z"/></svg>
+      <div class="store-btn-txt">
+        <small>Laden im</small>
+        <strong>App Store</strong>
+      </div>
+    </a>
+    <p class="dl-note">Ab 18 Jahren &middot; Verantwortungsbewusst trinken</p>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <span class="footer-l">© 2026 Sebastian Straub &nbsp;·&nbsp; Ab 18 Jahren</span>
+  <div class="footer-links">
+    <a href="impressum.html">Impressum</a>
+    <a href="privacy.html">Datenschutz</a>
+  </div>
+</footer>
+
+<script>
+  // ── Beer bubbles ──
+  const container = document.getElementById('bubbles');
+  for (let i = 0; i < 20; i++) {
+    const b = document.createElement('div');
+    b.className = 'bubble';
+    const size = Math.random() * 28 + 8;
+    Object.assign(b.style, {
+      width:  size + 'px',
+      height: size + 'px',
+      left:   Math.random() * 100 + '%',
+      animationDuration: (Math.random() * 10 + 8) + 's',
+      animationDelay:    (Math.random() * 10) + 's',
+    });
+    container.appendChild(b);
+  }
+
+  // ── Scroll reveal ──
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('visible');
+        observer.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.08 });
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+  // ── 3D phone tilt (desktop only) ──
+  const wrap = document.getElementById('phoneWrap');
+  const phone = document.getElementById('phone');
+  if (window.innerWidth > 900 && wrap && phone) {
+    document.addEventListener('mousemove', (e) => {
+      const cx = window.innerWidth / 2;
+      const cy = window.innerHeight / 2;
+      const rx = ((e.clientY - cy) / cy) * -6;
+      const ry = ((e.clientX - cx) / cx) * 8;
+      phone.style.animation = 'none';
+      phone.style.transform = `rotateX(${rx}deg) rotateY(${ry - 4}deg)`;
+    });
+    document.addEventListener('mouseleave', () => {
+      phone.style.animation = '';
+    });
+  }
+</script>
+</body>
+</html>
